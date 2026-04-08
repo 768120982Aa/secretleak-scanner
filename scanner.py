@@ -158,6 +158,7 @@ class SecretScanner:
                     "full_match": matched_text,
                     "context_before": context_before,
                     "context_after":  context_after,
+                    "source":      "local",
                 })
 
         return findings
@@ -225,10 +226,18 @@ class SecretScanner:
         return all_findings
 
     # ── Git 历史扫描 ───────────────────────────
-    def scan_git_history(self, repo_path: str | Path) -> list[dict]:
+    def scan_git_history(
+        self,
+        repo_path: str | Path,
+        verbose: bool = False,
+        max_commits: int = 200,
+    ) -> list[dict]:
         """
         扫描 Git 历史上所有 commit 中的敏感信息泄露。
         使用 git log -p 遍历每个提交的差异文件。
+        repo_path: Git 仓库路径
+        verbose:   是否显示详细上下文（Git 历史来源的 findings 会标记 source=git）
+        max_commits: 最多扫描的 commit 数量（默认 200）
         """
         repo_path = Path(repo_path).resolve()
 
@@ -257,7 +266,7 @@ class SecretScanner:
         commit_hashes = [h for h in commits if h.strip()]
 
         # 扫描每个 commit 的完整内容
-        for i, commit_hash in enumerate(commit_hashes[:200], 1):  # 限制最多 200 个 commit
+        for i, commit_hash in enumerate(commit_hashes[:max_commits], 1):
             if not commit_hash.strip():
                 continue
 
@@ -291,15 +300,19 @@ class SecretScanner:
                         if isinstance(self.patterns.get(name), dict):
                             severity = self.patterns[name].get("severity", "medium")
 
-                        all_findings.append({
+                        finding = {
                             "file":     f"git:commit:{commit_hash[:8]}:{filename}",
                             "type":     name,
                             "severity": severity,
                             "line":     line_num,
                             "column":   match.start() - content.rfind("\n", 0, match.start()),
                             "matched":  match.group()[:12] + "***",
+                            "full_match": match.group(),
                             "commit":   commit_hash,
-                        })
+                            "source":   "git",
+                        }
+                        all_findings.append(finding)
+                        self._print_finding(finding, verbose)
 
                 if i % 20 == 0:
                     cprint(f"  已扫描 {i} 个 commits ...", Colors.YELLOW)
@@ -320,13 +333,20 @@ class SecretScanner:
         }
         color = severity_colors.get(finding["severity"], Colors.YELLOW)
 
+        source_tag = ""
+        if finding.get("source") == "git":
+            source_tag = f"  {colored('[GIT历史]', Colors.MAGENTA)}  "
+
         cprint(
-            f"  [{color}{finding['severity'].upper():8}{Colors.END}]"
+            f"  {source_tag}[{color}{finding['severity'].upper():8}{Colors.END}]"
             f"  {finding['type']}",
             color,
         )
         print(f"    📄 {finding['file']}")
         print(f"    📍 第 {finding['line']} 行  列 {finding.get('column', '?')}")
+
+        if finding.get("source") == "git" and finding.get("commit"):
+            print(f"    🔖 commit: {finding['commit'][:8]}")
 
         if verbose and finding.get("context_before"):
             print(f"    ├ {colored(finding['context_before'][:80], Colors.BLUE)}{Colors.END}")
@@ -338,22 +358,34 @@ class SecretScanner:
         print()
 
     # ── 报告摘要 ──────────────────────────────
-    def print_summary(self, findings: list[dict]) -> None:
-        """打印扫描摘要"""
+    def print_summary(self, findings: list[dict], git_findings: Optional[list[dict]] = None) -> None:
+        """
+        打印扫描摘要。
+        git_findings: Git 历史扫描结果（如果有）
+        """
+        total_findings = findings + (git_findings or [])
+        has_git = git_findings is not None and len(git_findings) > 0
+
         print(f"\n{'='*60}")
         cprint(f"  扫描摘要", Colors.BOLD)
         print(f"{'='*60}")
-        print(f"  文件总数扫描: {self.total_files_scanned}")
-        print(f"  代码行数扫描: {self.total_lines_scanned}")
-        print(f"  泄露条数:     {len(findings)}")
 
-        if not findings:
+        if has_git:
+            print(f"  📁 本地扫描:   文件 {self.total_files_scanned} 个  行数 {self.total_lines_scanned} 条")
+            print(f"  📜 Git 历史:   {len(git_findings)} 条泄露")
+        else:
+            print(f"  文件总数扫描: {self.total_files_scanned}")
+            print(f"  代码行数扫描: {self.total_lines_scanned}")
+
+        print(f"  泄露条数:     {len(total_findings)}")
+
+        if not total_findings:
             cprint("  ✅ 未检测到敏感信息泄露！", Colors.GREEN)
             return
 
         # 按严重级别分组
         by_severity = {}
-        for f in findings:
+        for f in total_findings:
             s = f["severity"]
             by_severity[s] = by_severity.get(s, 0) + 1
 
@@ -367,13 +399,19 @@ class SecretScanner:
 
         # 按类型分组
         by_type: dict = {}
-        for f in findings:
+        for f in total_findings:
             t = f["type"]
             by_type[t] = by_type.get(t, 0) + 1
 
         cprint(f"  泄露类型 TOP 5:", Colors.BOLD)
         for t, cnt in sorted(by_type.items(), key=lambda x: -x[1])[:5]:
             print(f"    {cnt:4d} ×  {t}")
+
+        if has_git:
+            local_count = len(findings)
+            git_count = len(git_findings)
+            print()
+            print(f"  📊 来源分布:   本地 {local_count} 条  |  Git 历史 {git_count} 条")
 
         print()
 
@@ -388,14 +426,28 @@ class SecretScanner:
             cprint("  ✅ 仅发现低危泄露或误报，请人工复核。", Colors.GREEN)
 
     # ── 导出报告 ──────────────────────────────
-    def export_json(self, findings: list[dict], output_file: str) -> None:
-        """将结果导出为 JSON 报告"""
+    def export_json(
+        self,
+        findings: list[dict],
+        output_file: str,
+        git_findings: Optional[list[dict]] = None,
+        git_repo_path: Optional[str] = None,
+    ) -> None:
+        """
+        将结果导出为 JSON 报告。
+        git_findings: Git 历史扫描结果（可选）
+        git_repo_path: Git 仓库路径（可选，用于报告中记录）
+        """
+        all_findings = findings + (git_findings or [])
         report = {
             "scanned_at":      datetime.now().isoformat(),
             "files_scanned":   self.total_files_scanned,
             "lines_scanned":   self.total_lines_scanned,
-            "total_findings":  len(findings),
-            "findings":        findings,
+            "total_findings":  len(all_findings),
+            "local_findings":  len(findings),
+            "git_findings":    len(git_findings) if git_findings else 0,
+            "git_repo":        str(git_repo_path) if git_repo_path else None,
+            "findings":        all_findings,
         }
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
@@ -469,24 +521,27 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  %(prog)s scan .                          # 扫描当前目录
-  %(prog)s scan /path/to/project --verbose # 详细输出
-  %(prog)s git /path/to/repo              # 扫描 Git 历史
+  %(prog)s scan .                          # 扫描当前目录（本地文件）
+  %(prog)s scan . --git                    # 同时扫描本地文件 + Git 历史
+  %(prog)s scan /path/to/project -g -v     # 全面扫描 + 详细输出
+  %(prog)s git /path/to/repo               # 仅扫描 Git 历史
   %(prog)s install-hook                   # 安装预提交钩子
-  %(prog)s report scan.json               # 生成 JSON 报告
+  %(prog)s report scan.json               # 查看 JSON 报告
         """,
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # scan 命令
-    scan_parser = subparsers.add_parser("scan", help="扫描本地文件/目录")
+    scan_parser = subparsers.add_parser("scan", help="扫描本地文件/目录（可配合 --git 同时扫 Git 历史）")
     scan_parser.add_argument("path", nargs="?", default=".", help="待扫描的目录或文件（默认: .）")
     scan_parser.add_argument("--exclude", "-e", nargs="+", default=[],
                              help="额外排除的目录")
     scan_parser.add_argument("--verbose", "-v", action="store_true",
                              help="显示详细上下文")
     scan_parser.add_argument("--output", "-o", help="导出 JSON 报告路径")
+    scan_parser.add_argument("--git", "-g", action="store_true",
+                             help="同时扫描目标目录的 Git 提交历史")
 
     # git 命令
     git_parser = subparsers.add_parser("git", help="扫描 Git 历史")
@@ -511,11 +566,23 @@ def main():
             exclude=set(args.exclude),
             verbose=args.verbose,
         )
-        scanner.print_summary(findings)
+
+        git_findings = []
+        if getattr(args, "git", False):
+            git_findings = scanner.scan_git_history(args.path, verbose=args.verbose)
+
+        # 合并输出：git findings 已在 scan_git_history 中打印，此处只需打印汇总
+        all_findings = findings + git_findings
+        scanner.print_summary(findings, git_findings)
 
         if args.output:
-            scanner.export_json(findings, args.output)
-        sys.exit(1 if findings else 0)
+            scanner.export_json(
+                findings,
+                args.output,
+                git_findings=(git_findings if git_findings else None),
+                git_repo_path=(args.path if git_findings else None),
+            )
+        sys.exit(1 if all_findings else 0)
 
     # ── git ───────────────────────────────
     elif args.command == "git":
