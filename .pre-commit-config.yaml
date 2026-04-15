@@ -1,0 +1,20 @@
+# SecretLeak Scanner — Pre-commit 配置
+# 使用方法:
+#   1. pip install pre-commit
+#   2. pre-commit install
+#   3. 以后每次 git commit 会自动扫描暂存文件
+#
+# 跳过扫描: git commit --no-verify
+
+repos:
+  - repo: local
+    hooks:
+      - id: secretleak-scan
+        name: SecretLeak Scanner
+        description: 扫描暂存文件中的敏感信息泄露
+        entry: python scripts/precommit_check.py
+        language: system
+        pass_filenames: true
+        # 只扫描暂存区新增/修改的文件（不含已追踪未修改的）
+        types: [python, javascript, typescript, java, go, ruby, rust, c, cpp, php, yaml, json, xml, toml, ini, env, sh, bash, sql, html, css]
+        stages: [commit]

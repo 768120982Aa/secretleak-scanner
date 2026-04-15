@@ -62,13 +62,16 @@ pip install -r requirements.txt
 
 ```
 secretleak-scanner/
-├── scanner.py          # 核心扫描引擎（CLI 入口，所有命令从这里触发）
-├── patterns.json       # 密钥正则规则库（可自行扩展）
-├── requirements.txt    # Python 依赖
-├── README.md           # 本文件
-└── .github/
-    └── workflows/
-        └── test.yml    # CI 自动测试
+├── scanner.py              # 核心扫描引擎（CLI 入口，所有命令从这里触发）
+├── patterns.json           # 密钥正则规则库（可自行扩展）
+├── requirements.txt        # Python 依赖
+├── README.md               # 本文件
+├── .pre-commit-config.yaml # Pre-commit 框架配置（推荐）
+└── scripts/
+    └── precommit_check.py # Pre-commit hook 入口脚本
+    └── .github/
+        └── workflows/
+            └── test.yml    # CI 自动测试
 ```
 
 > **关键文件**：`scanner.py` 和 `patterns.json` 需放在同一目录下使用。
@@ -275,9 +278,64 @@ rm .git/hooks/pre-commit
 3. 发现泄露 → 打印警告并以 exit code 1 退出（阻止提交）
 4. 无泄露 → 正常提交
 
+> ⚠️ **Windows 兼容性**：`install-hook` 生成的 Shell 脚本需要在 Git Bash / WSL / Cygwin 环境下运行。如果在 Windows CMD/PowerShell 原生环境下使用，推荐改用下方的 Pre-commit 框架集成。
+
 ---
 
-## 输出示例
+### 六、Pre-commit 框架集成（推荐，跨平台）
+
+如果你的项目使用 [pre-commit](https://pre-commit.com/) 管理 Git 钩子，推荐使用此方式，**兼容 Windows/macOS/Linux 全平台**。
+
+#### 安装步骤
+
+```bash
+# 1. 安装 pre-commit（如果你还没有）
+pip install pre-commit
+
+# 2. 在项目根目录创建 .pre-commit-config.yaml（已包含在项目中）
+# 或手动创建：
+# repos:
+#   - repo: local
+#     hooks:
+#       - id: secretleak-scan
+#         name: SecretLeak Scanner
+#         entry: python scripts/precommit_check.py
+#         language: system
+#         pass_filenames: true
+
+# 3. 安装钩子
+pre-commit install
+
+# 4. 可选：首次运行所有文件的扫描（验证配置）
+pre-commit run --all-files secretleak-scan
+```
+
+#### 跳过扫描
+
+临时跳过预提交扫描，正常提交：
+
+```bash
+git commit --no-verify -m "your commit message"
+```
+
+#### 工作原理
+
+1. `pre-commit install` 会在 `.git/hooks/pre-commit` 中调用 pre-commit
+2. 每次 `git commit` 时，pre-commit 自动运行 `.pre-commit-config.yaml` 中定义的钩子
+3. `secretleak-scan` 钩子调用 `scripts/precommit_check.py`，扫描本次暂存的所有文件
+4. 发现泄露 → 打印警告并以 exit code 1 退出（阻止提交）
+5. 无泄露 → 正常提交
+
+#### 与 `install-hook` 的区别
+
+| 特性 | `install-hook` (Shell) | Pre-commit 框架 |
+|------|------------------------|-----------------|
+| 跨平台支持 | 仅 Unix Shell 环境 | ✅ Windows/macOS/Linux |
+| 配置方式 | Shell 脚本 | YAML 配置文件 |
+| 管理难度 | 需要手动编辑脚本 | 自动管理，版本控制友好 |
+| 生态集成 | 独立使用 | 可与其他 pre-commit 钩子共存 |
+
+
 
 ### 终端输出（彩色）
 
