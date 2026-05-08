@@ -2,6 +2,7 @@
 import sys
 import json
 import argparse
+import subprocess
 
 from secretleak.engine import SecretScanner
 from secretleak.hooks import install_precommit_hook
@@ -20,6 +21,7 @@ def main():
   %(prog)s scan /path/to/project -g -v     # 全面扫描 + 详细输出
   %(prog)s git /path/to/repo               # 仅扫描 Git 历史
   %(prog)s install-hook                   # 安装预提交钩子
+  %(prog)s check-staged                   # 扫描暂存文件（pre-commit 集成）
   %(prog)s report scan.json               # 查看 JSON 报告
         """,
     )
@@ -45,6 +47,9 @@ def main():
     # hook 命令
     hook_parser = subparsers.add_parser("install-hook", help="安装预提交钩子")
     hook_parser.add_argument("path", nargs="?", default=".", help="Git 仓库路径（默认: .）")
+
+    # check-staged 命令（供 pre-commit 框架使用）
+    staged_parser = subparsers.add_parser("check-staged", help="扫描暂存文件（pre-commit 集成）")
 
     # report 命令
     report_parser = subparsers.add_parser("report", help="查看已有 JSON 报告")
@@ -90,6 +95,34 @@ def main():
     # ── install-hook ───────────────────────
     elif args.command == "install-hook":
         install_precommit_hook(args.path)
+
+    # ── check-staged ────────────────────────
+    elif args.command == "check-staged":
+        from pathlib import Path
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
+            capture_output=True, text=True,
+        )
+        staged = [f.strip() for f in result.stdout.split("\n") if f.strip()]
+        if not staged:
+            print("SecretLeak Scanner: no staged files to check.")
+            sys.exit(0)
+
+        scanner = SecretScanner()
+        all_findings = []
+        for fname in staged:
+            filepath = Path(fname)
+            if filepath.is_file() and scanner.should_scan(filepath):
+                all_findings.extend(scanner.scan_file(filepath))
+
+        if all_findings:
+            print("\n!! SecretLeak Scanner blocked this commit:\n")
+            for f in all_findings:
+                print(f"  [{f['severity']}] {f['type']} in {f['file']} line {f['line']}")
+            print(f"\n{len(all_findings)} secret(s) detected. Commit blocked.\n")
+            sys.exit(1)
+
+        print("SecretLeak Scanner: pre-commit check passed.")
 
     # ── report ─────────────────────────────
     elif args.command == "report":

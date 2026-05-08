@@ -298,6 +298,29 @@ class TestCLI:
         result = self._run("scan", "src", "--exclude", "secrets")
         assert result.returncode == 0
 
+    def test_check_staged_detects_secret(self):
+        """check-staged 扫描暂存文件，检测到密钥应返回非零"""
+        _init_git(self.tmp)
+        token = _make_token(36)
+        (self.tmp / "secret.py").write_text(f'TOKEN = "{token}"\n', encoding="utf-8")
+        subprocess.run(
+            ["git", "add", "secret.py"], check=True, capture_output=True,
+            cwd=str(self.tmp),
+        )
+        result = self._run("check-staged")
+        assert result.returncode == 1
+
+    def test_check_staged_clean_passes(self):
+        """check-staged 扫描无密钥文件应返回 0"""
+        _init_git(self.tmp)
+        (self.tmp / "clean.py").write_text("x = 1\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "add", "clean.py"], check=True, capture_output=True,
+            cwd=str(self.tmp),
+        )
+        result = self._run("check-staged")
+        assert result.returncode == 0
+
     def test_install_hook_non_git_dir(self):
         """在非 Git 目录运行 install-hook 应报错但不崩溃"""
         result = subprocess.run(

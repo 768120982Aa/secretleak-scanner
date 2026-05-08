@@ -1,18 +1,8 @@
-# SecretLeak Scanner — Python Dependencies
-# Python >= 3.9 required
-
-# Core scanning (no heavy dependencies, pure stdlib where possible)
-# scanner.py itself only needs: re, json, os, sys, argparse, subprocess, pathlib
-
-# Optional: for richer CLI output formatting
-# colorama>=0.4.6
-
-# Optional: for YAML pattern file support (future)
-# pyyaml>=6.0
+# SecretLeak Scanner — Development Dependencies
+# 运行时仅需 Python >= 3.9 stdlib，以下仅为开发工具
 
 # Testing
 pytest>=7.4.0
-pytest-cov>=4.1.0
 
 # Type checking
 mypy>=1.5.0
