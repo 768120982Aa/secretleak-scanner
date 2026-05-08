@@ -1,0 +1,177 @@
+{
+  "AWS Access Key ID": {
+    "pattern": "AKIA[0-9A-Z]{16}",
+    "severity": "critical",
+    "description": "AWS Access Key ID — 可直接用于调用 AWS API"
+  },
+  "AWS Secret Access Key": {
+    "pattern": "(?i)aws(.{0,20})?['\"][0-9a-zA-Z/+=]{40}['\"]",
+    "severity": "critical",
+    "description": "AWS Secret Access Key — 配合 Access Key ID 可完全控制 AWS 账户"
+  },
+  "GitHub Token": {
+    "pattern": "ghp_[a-zA-Z0-9]{36}",
+    "severity": "critical",
+    "description": "GitHub Personal Access Token — 可访问私有仓库和操作 GitHub API"
+  },
+  "GitHub OAuth Token": {
+    "pattern": "gho_[a-zA-Z0-9]{36}",
+    "severity": "critical",
+    "description": "GitHub OAuth Token"
+  },
+  "GitHub Fine-grained PAT": {
+    "pattern": "github_pat_[a-zA-Z0-9_]{22,255}",
+    "severity": "critical",
+    "description": "GitHub Fine-grained Personal Access Token"
+  },
+  "Slack Token": {
+    "pattern": "xox[baprs]-[0-9a-zA-Z]{10,48}",
+    "severity": "high",
+    "description": "Slack Token — 可读取/发送频道消息"
+  },
+  "Slack Webhook": {
+    "pattern": "https://hooks\\.slack\\.com/services/T[a-zA-Z0-9_]+/B[a-zA-Z0-9_]+/[a-zA-Z0-9_]+",
+    "severity": "high",
+    "description": "Slack Webhook URL — 可向频道推送消息"
+  },
+  "Generic API Key": {
+    "pattern": "[aA][pP][iI][-_]?[kK][eE][yY][\\s]*[:=][\\s]*['\"][a-zA-Z0-9]{16,}['\"]",
+    "severity": "medium",
+    "description": "通用 API Key"
+  },
+  "Generic Secret": {
+    "pattern": "[sS][eE][cC][rR][eE][tT][\\s]*[:=][\\s]*['\"][a-zA-Z0-9]{16,}['\"]",
+    "severity": "medium",
+    "description": "通用 Secret 字符串"
+  },
+  "Private Key (PEM)": {
+    "pattern": "-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----",
+    "severity": "critical",
+    "description": "私钥文件 — SSH/TLS 私钥泄露"
+  },
+  "JWT Token": {
+    "pattern": "eyJ[a-zA-Z0-9_-]*\\.eyJ[a-zA-Z0-9_-]*\\.[a-zA-Z0-9_-]*",
+    "severity": "high",
+    "description": "JSON Web Token — 未加密的 JWT"
+  },
+  "Stripe Publishable Key": {
+    "pattern": "pk_(?:live|test)_[a-zA-Z0-9]{24,}",
+    "severity": "medium",
+    "description": "Stripe Publishable Key"
+  },
+  "Stripe Secret Key": {
+    "pattern": "sk_(?:live|test)_[a-zA-Z0-9]{24,}",
+    "severity": "critical",
+    "description": "Stripe Secret Key — 支付相关敏感操作"
+  },
+  "OpenAI API Key": {
+    "pattern": "sk-[a-zA-Z0-9]{48}",
+    "severity": "critical",
+    "description": "OpenAI API Key — 可调用 ChatGPT/DALL-E 等服务"
+  },
+  "Anthropic API Key": {
+    "pattern": "sk-ant-[a-zA-Z0-9-]{20,}",
+    "severity": "critical",
+    "description": "Anthropic API Key — 可调用 Claude 模型"
+  },
+  "Telegram Bot Token": {
+    "pattern": "[0-9]{8,10}:[a-zA-Z0-9_-]{35}",
+    "severity": "high",
+    "description": "Telegram Bot Token — 可控制 Bot 发送消息"
+  },
+  "Discord Token": {
+    "pattern": "[MN][A-Za-z\\d]{23,}\\.[a-zA-Z\\d_-]{6}\\.[a-zA-Z\\d_-]{27}",
+    "severity": "critical",
+    "description": "Discord Bot Token"
+  },
+  "SendGrid API Key": {
+    "pattern": "SG\\.[a-zA-Z0-9_-]{22}\\.[a-zA-Z0-9_-]{43}",
+    "severity": "critical",
+    "description": "SendGrid API Key — 邮件发送服务"
+  },
+  "Mailgun API Key": {
+    "pattern": "key-[a-zA-Z0-9]{32}",
+    "severity": "critical",
+    "description": "Mailgun API Key"
+  },
+  "NPM Token": {
+    "pattern": "npm_[a-zA-Z0-9]{36}",
+    "severity": "critical",
+    "description": "NPM Token — 可发布/管理 NPM 包"
+  },
+  "PyPI Token": {
+    "pattern": "pypi-AgEIcHlwaS5vcmc[A-Za-z0-9_-]{50,}",
+    "severity": "critical",
+    "description": "PyPI API Token"
+  },
+  "Docker Hub Token": {
+    "pattern": "[a-zA-Z0-9_-]{20,}:[a-zA-Z0-9]{32}",
+    "severity": "critical",
+    "description": "Docker Hub Access Token"
+  },
+  "Google OAuth Access Token": {
+    "pattern": "ya29\\.[a-zA-Z0-9_-]{100,}",
+    "severity": "critical",
+    "description": "Google OAuth Access Token"
+  },
+  "Twilio API Key": {
+    "pattern": "SK[a-zA-Z0-9]{32}",
+    "severity": "high",
+    "description": "Twilio API Key — SMS/电话服务"
+  },
+  "PayPal Access Token": {
+    "pattern": "[a-zA-Z0-9_-]{20,}:[a-zA-Z0-9_-]{30,}",
+    "severity": "critical",
+    "description": "PayPal Access Token"
+  },
+  "Database Connection String": {
+    "pattern": "(mongodb|mysql|postgresql|redis|mssql)://[^\\s]+:[^\\s]+@[a-zA-Z0-9._-]+(:[0-9]+)?/[a-zA-Z0-9_-]*",
+    "severity": "critical",
+    "description": "数据库连接字符串 — 包含明文密码"
+  },
+  "Connection String with Password": {
+    "pattern": "(?i)(server|data source|host)=[^;]+;(.*?)(password|pwd)=[^;]+",
+    "severity": "critical",
+    "description": "SQL Server / 通用数据库连接字符串"
+  },
+  "Hardcoded Password in String": {
+    "pattern": "(?i)(password|passwd|pwd)[\\s]*[=:][\\s]*['\"][^'\"]{8,72}['\"]",
+    "severity": "medium",
+    "description": "硬编码密码"
+  },
+  "Basic Auth Header": {
+    "pattern": "Basic [a-zA-Z0-9+/]+={0,2}",
+    "severity": "high",
+    "description": "HTTP Basic Auth 凭证头"
+  },
+  "Bearer Token in Header": {
+    "pattern": "Bearer [a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+){1,2}",
+    "severity": "high",
+    "description": "HTTP Bearer Token — 常见于 API 认证"
+  },
+  "Telegram Bot Token (long)": {
+    "pattern": "[0-9]{8,10}:[a-zA-Z0-9_-]{30,}",
+    "severity": "high",
+    "description": "Telegram Bot Token (长格式)"
+  },
+  "Google Cloud API Key": {
+    "pattern": "AIza[a-zA-Z0-9_-]{35}",
+    "severity": "critical",
+    "description": "Google Cloud API Key"
+  },
+  "Google OAuth Refresh Token": {
+    "pattern": "1/[a-zA-Z0-9_-]{40}",
+    "severity": "high",
+    "description": "Google OAuth Refresh Token"
+  },
+  "Cloudflare API Key": {
+    "pattern": "[a-f0-9]{37}:[a-f0-9]{37}",
+    "severity": "high",
+    "description": "Cloudflare API Key"
+  },
+  "Mailchimp API Key": {
+    "pattern": "[a-f0-9]{32}-us[0-9]{1,2}",
+    "severity": "high",
+    "description": "Mailchimp API Key"
+  }
+}
