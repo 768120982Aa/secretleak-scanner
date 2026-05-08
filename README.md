@@ -108,6 +108,66 @@ python scanner.py report scan.json
 
 ---
 
+## GitHub Actions CI/CD 集成
+
+在仓库中添加 `.github/workflows/secret-scan.yml`：
+
+```yaml
+name: SecretLeak Scanner
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 拉取完整历史，用于 Git 历史扫描
+
+      - name: Checkout SecretLeak Scanner
+        uses: actions/checkout@v4
+        with:
+          repository: 768120982Aa/secretleak-scanner
+          path: scanner
+
+      - name: Run scan
+        run: |
+          python scanner/scanner.py scan . --git --output scan-report.json
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secretleak-report
+          path: scan-report.json
+```
+
+**说明：**
+
+- `fetch-depth: 0` — 必须拉取完整 Git 历史，否则 `--git` 扫描无数据
+- 方式 A（推荐）：checkout 当前仓库 + checkout scanner 仓库，直接运行
+- 方式 B：也可以通过 `curl`/`wget` 直接下载 `scanner.py` 和 `patterns.json`（单文件场景无需完整仓库）
+
+方式 B 最小化示例：
+
+```yaml
+- name: Download and run
+  run: |
+    curl -sOL https://raw.githubusercontent.com/768120982Aa/secretleak-scanner/master/scanner.py
+    curl -sOL https://raw.githubusercontent.com/768120982Aa/secretleak-scanner/master/patterns.json
+    mkdir -p secretleak
+    curl -sL https://api.github.com/repos/768120982Aa/secretleak-scanner/contents/secretleak | \
+      python -c "import sys,json,os;[os.makedirs('secretleak', exist_ok=True) or open(f'secretleak/{f[\"name\"]}','wb').write(__import__('urllib.request').request.urlopen(f['download_url']).read()) for f in json.load(sys.stdin)]"
+    python scanner.py scan . --git --output report.json
+```
+
+---
+
 ## 自定义规则
 
 编辑 `patterns.json`，每个规则格式如下：
